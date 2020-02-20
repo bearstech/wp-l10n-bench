@@ -1,0 +1,22 @@
+#!/bin/sh -e
+
+# Copyright (C) 2020 Bearstech - https://bearstech.com
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# The first short 'sleep' makes sure MariaDB server and PHP's HTTP server do
+# not start at exactly the same moment, which might actually make their startup
+# slower while they compete on ressources. The second longer 'sleep' waits for
+# them to be actually ready.
+mysqld_safe >/dev/null & sleep .1
+php -S 127.0.0.1:8000 >/dev/null 2>&1 & sleep 1.9
+
+# Important benchmark conditions : we know everything (code, data, files, DB)
+# will be cached in RAM, so we warm-up in order to have a consistent,
+# IO-independent benchmark. And we always show errors, because if you have
+# errors then you're not allowed to interpret the measure as a benchmark result.
+ab -q -l -c 1 -t 10 http://127.0.0.1:8000/?p=1 >/dev/null  # Warm up
+ab -q -l -c 1 -t 30 http://127.0.0.1:8000/?p=1 |egrep '(^Failed|^Time per .*\(mean\))'
